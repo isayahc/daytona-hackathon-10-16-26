@@ -9,3 +9,5 @@ message*.txt
 task*.txt
 followup*.txt
 demo-context.json
+
+guide*.txt

@@ -9,16 +9,16 @@ import re
 import sys
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 Json = dict[str, Any]
 
 
-def required(name: str) -> str:
+def required(name: str, env: Mapping[str, str] | None = None) -> str:
     """Read a required environment setting without exposing its value."""
-    value = os.environ.get(name, "")
+    value = (os.environ if env is None else env).get(name, "")
     if not value:
         raise ValueError(f"Set {name} before running this command")
     return value
@@ -38,16 +38,17 @@ def request(url: str, payload: Json | None, headers: dict[str, str], method: str
 class Memory:
     """Persist drafts and atomically claim delivery attempts in SurrealDB."""
 
-    def __init__(self) -> None:
-        """Load database endpoint and credentials from the environment."""
-        self.url = required("SURREAL_URL").rstrip("/") + "/rpc"
-        token = os.environ.get("SURREAL_TOKEN")
+    def __init__(self, env: Mapping[str, str] | None = None) -> None:
+        """Load database settings from an explicit mapping or process environment."""
+        env = os.environ if env is None else env
+        self.url = required("SURREAL_URL", env).rstrip("/") + "/rpc"
+        token = env.get("SURREAL_TOKEN")
         auth = f"Bearer {token}" if token else "Basic " + base64.b64encode(
-            f'{required("SURREAL_USER")}:{required("SURREAL_PASS")}'.encode()
+            f'{required("SURREAL_USER", env)}:{required("SURREAL_PASS", env)}'.encode()
         ).decode()
         self.headers = {"Authorization": auth, "Accept": "application/json",
-                        "surreal-ns": os.environ.get("SURREAL_NS", "outreach"),
-                        "surreal-db": os.environ.get("SURREAL_DB", "outreach")}
+                        "surreal-ns": env.get("SURREAL_NS", "outreach"),
+                        "surreal-db": env.get("SURREAL_DB", "outreach")}
 
     def query(self, sql: str, variables: Json | None = None) -> list[Any]:
         """Execute parameterized SurrealQL and reject statement-level errors."""
