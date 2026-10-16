@@ -10,10 +10,31 @@ import sys
 import uuid
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.error import HTTPError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
+from dotenv import load_dotenv
+
+import documents
+
 Json = dict[str, Any]
+
+
+class ProviderHTTPError(RuntimeError):
+    """An actionable HTTP failure without provider bodies or private URLs."""
+
+    def __init__(self, provider: str, status: int) -> None:
+        hints = {
+            400: "Provider rejected the request parameters; check the API request schema.",
+            401: "Check the configured API key or database credentials.",
+            402: "Insufficient credits; check your Anchor project billing.",
+            403: "Check credential permissions and account access.",
+            404: "Resource not found; check the endpoint or session/profile ID.",
+            429: "Rate or concurrency limit reached; wait or end unused sessions before trying again.",
+        }
+        hint = hints.get(status, "Check provider availability and configuration.")
+        super().__init__(f"{provider} request failed (HTTP {status}). {hint}")
 
 
 def required(name: str, env: Mapping[str, str] | None = None) -> str:
@@ -28,8 +49,13 @@ def request(url: str, payload: Json | None, headers: dict[str, str], method: str
     """Execute one JSON request; never retry a potentially delivered message."""
     data = json.dumps(payload).encode() if payload is not None else None
     req = Request(url, data=data, headers={"Content-Type": "application/json", **headers}, method=method)
-    with urlopen(req, timeout=240) as response:
-        result = json.load(response)
+    try:
+        with urlopen(req, timeout=240) as response:
+            result = json.load(response)
+    except HTTPError as error:
+        provider = "Anchor" if urlsplit(url).hostname == "api.anchorbrowser.io" else "Database"
+        error.close()
+        raise ProviderHTTPError(provider, error.code) from None
     if not isinstance(result, dict) or result.get("error"):
         raise RuntimeError("Provider returned an error or an invalid response")
     return result
@@ -94,7 +120,7 @@ class Anchor:
         """Create a visible browser with recording disabled for manual sign-in."""
         payload: Json = {"session": {"recording": {"active": False},
                                     "timeout": {"max_duration": 60, "idle_timeout": 15}},
-                         "browser": {"headless": False}}
+                         "browser": {"headless": {"active": False}}}
         if profile:
             payload["browser"]["profile"] = {"name": profile, "persist": True}
         return request(self.base + "/sessions", payload, self.headers)["data"]
@@ -173,7 +199,9 @@ def main() -> None:
         if command == "send":
             sub.add_argument("--session", required=True)
     commands.add_parser("history")
+    documents.add_commands(commands)
     args = parser.parse_args()
+    load_dotenv(Path(__file__).resolve().with_name(".env"), override=False)
     if args.command == "session":
         print(json.dumps(Anchor().start(args.profile), indent=2))
     elif args.command == "save-profile":
@@ -184,7 +212,9 @@ def main() -> None:
         print("Session ended.")
     else:
         memory = Memory()
-        if args.command == "draft":
+        if args.command == "documents":
+            documents.run(args, memory)
+        elif args.command == "draft":
             validate_recipient(args.channel, args.recipient)
             body = args.body_file.read_text(encoding="utf-8")
             if not body.strip():
@@ -223,6 +253,6 @@ if __name__ == "__main__":
         main()
     except Exception as error:
         # Provider bodies and URLs may contain session tokens: never print them.
-        print(str(error) if isinstance(error, ValueError) else
+        print(str(error) if isinstance(error, (ValueError, ProviderHTTPError)) else
               f"Command failed ({type(error).__name__}). Check configuration and browser state.", file=sys.stderr)
         sys.exit(1)

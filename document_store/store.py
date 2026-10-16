@@ -75,7 +75,7 @@ class DocumentStore:
         """Idempotently store one version and return its reusable document key."""
         payload = asdict(document)
         payload['retrieved_at'] = document.retrieved_at.isoformat()
-        self.memory.query("UPSERT type::record('document', $id) CONTENT $document;",
+        self.memory.query("UPSERT type::record('document:' + $id) CONTENT $document;",
                           {'id': document.key, 'document': payload})
         return document.key
 
@@ -93,8 +93,9 @@ class DocumentStore:
     def list(self) -> list[Any]:
         """Return source metadata without loading all stored content."""
         return self.memory.query('SELECT key, source_url, title, content_sha256, retrieved_at, '
-                                 'source_session_id, is_truncated FROM document;')[0]
+                                 'source_session_id, is_truncated FROM document WHERE content != NONE;')[0]
 
     def get(self, key: str) -> list[Any]:
         """Retrieve a specific source/content version for reuse or citation."""
-        return self.memory.query("SELECT * FROM type::record('document', $id);", {'id': key})[0]
+        return self.memory.query("SELECT * FROM type::record('document:' + $id) WHERE content != NONE;",
+                                 {'id': key})[0]
