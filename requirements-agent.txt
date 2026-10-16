@@ -1,2 +1,2 @@
-# Optional runtime dependency; the UI and outreach CLI remain standard-library only.
+# Optional Daytona runtime SDK; also install requirements.txt for document workflows.
 daytona==0.224.1

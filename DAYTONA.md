@@ -48,6 +48,110 @@ python -m agent_runtime --prompt-file task.txt --prompt-file followup.txt --cont
 
 The sandbox is deleted on completion, so continuation is within one command/context, not across separate CLI invocations. Save the printed outputs if needed. This runtime does not automatically persist final answers in SurrealDB or invoke the outreach CLI. Retrieved source documents are persisted when database settings are configured, as described below. The UI remains a mock-data skeleton.
 
+## Five parallel event researchers
+
+`agent_runtime.research` coordinates **exactly five independent Daytona sandboxes**
+for one event brief. Each owns its own SDK client, OpenCode session, and filesystem;
+the host runs them concurrently using a five-thread executor.
+
+| Worker | Research output |
+| --- | --- |
+| `contacts` | Nonprofit organizers, experts, publicly listed professional contacts, supporting source pages |
+| `venues` | Candidate spaces, booking contacts, accessibility, published capacity/pricing, unknown availability |
+| `sponsors` | Mission-aligned prospective sponsors, partnership contacts, tailored sponsorship propositions |
+| `catering` | Providers, inquiry channels, dietary options, published prices and draft inquiries |
+| `proposals` | Event program propositions, audience benefits, agenda options and measurable outcomes |
+
+### Configure and launch
+
+Install both dependency sets and configure the existing `.env` settings:
+
+```bash
+.venv/bin/python -m pip install -r requirements.txt -r requirements-agent.txt
+```
+
+- `DAYTONA_API_KEY` and enough Daytona quota for five simultaneous sandboxes.
+- `OPENCODE_MODEL` plus the matching provider credentials: OpenAI, Anthropic, Google,
+  or AWS Bedrock (including `AWS_REGION`). Five workers also share provider rate limits.
+- Optional `DAYTONA_SNAPSHOT`, tracing settings, and Spectron/direct-database settings.
+
+The CLI loads the project `.env`; existing environment values take precedence.
+Missing credentials fail before provisioning. `examples/event-research.json` contains
+the proposed nonprofit Community Energy & Resilience Workshop. Replace its fictional
+organizer/date with your own event details when appropriate. The brief requires an
+organization and event with matching organizer ID, title, and timezone-aware start
+time. Budget, end time, venue, attendees, and other ecosystem relationships are optional.
+`location`, `objectives`, and `max_candidates` (1–10 per worker) guide research.
+
+```bash
+# Inspect all five role prompts without requiring credentials or creating resources.
+.venv/bin/python -m agent_runtime.research \
+  --brief examples/event-research.json --dry-run
+
+# Provision five workers and collect one structured report.
+.venv/bin/python -m agent_runtime.research \
+  --brief examples/event-research.json --category energy \
+  --timeout 300 --output event-research-report.json
+```
+
+Only the explicit brief and retrieved evidence enter each sandbox; the repository,
+`.env`, browser sessions, Daytona API key, and storage credentials stay on the host.
+Each sandbox receives only the selected model-provider credentials, requested tracing
+setup, and `OPENCODE_ENABLE_EXA=1`, which enables OpenCode's built-in web search for
+the pinned OpenCode release. No additional search API key is required. Workers discover
+pages with `websearch` and read them with `webfetch`; search results alone are not saved
+as source documents. Search-service availability and network access still affect results.
+
+### Shared memory and consolidated results
+
+All workers retrieve relevant stored passages and save completed webfetch results
+through the same host-side document adapter. A lock serializes memory operations to
+avoid concurrent duplicate-upload races; the web-research turns run concurrently.
+With no database configured, research still runs and results report document storage
+as `not_configured`. Configure Spectron to reuse fetched documents in later runs.
+
+Progress and sandbox IDs go to stderr. JSON on stdout (and the optional output file)
+includes:
+
+- Run ID, event ID, timestamp, and `completed`, `partial`, or `failed` run status.
+- One result per role, preserving successful output if another worker fails.
+- Structured candidate lists grouped by role, source URLs, rationale, role-specific
+  details, and open questions. Candidates remain proposals; results do not modify the
+  event, register attendees, create commitments, or send outreach.
+- Each worker's OpenCode session, retrieved-source citation map, saved document keys,
+  observed completed web-search count and fetched URLs.
+- Sandbox IDs and cleanup status: `not_created`, `delete_requested`, or `failed`.
+  `delete_requested` means the SDK accepted deletion, not independently confirmed destruction.
+
+A worker is `completed` only if it returns the expected JSON contract and emitted
+at least one completed `websearch` and `webfetch` tool event. Otherwise it is
+`incomplete` or `failed`; natural-language claims of browsing do not count as tool
+evidence. Candidate `evidence_status=source_retrieved` means all its cited URLs were
+read in that worker's turn or supplied from document memory. It does not independently
+validate the model's claims; other candidates are `unverified`.
+
+The CLI exits 0 for a completed run, 1 for partial/failed research, and 2 for invalid
+configuration. A cleanup failure makes that worker fail while preserving its completed
+research and sandbox ID for recovery. Other workers continue; failures are not retried.
+The existing per-sandbox cleanup handles boot failures and turn errors. On keyboard
+interruption, the executor waits for in-flight workers to finish their bounded work
+and cleanup; interruption does not instantly terminate a remote command. Abrupt host
+termination can still leave sandboxes requiring manual cleanup.
+
+`--timeout` bounds each model turn, not the whole batch: provisioning, package/tracing
+installation, document storage, and deletion take additional time. All workers use
+the same model/category/tracing settings. The report is saved locally; fetched source
+documents are persisted in configured memory. The read-only workspace UI does not yet
+launch research jobs or automatically import candidate records.
+
+### Verification
+
+Offline tests use a barrier to prove all five researchers can be in flight together,
+exercise the real runtime lifecycle with a simulated boot failure, preserve partial
+results, label unobserved browsing, record cleanup failures, and serialize shared
+memory operations. Live five-sandbox provisioning/search/inference requires Daytona
+and model credentials and has not been verified in this environment.
+
 ## Enable Arize AX tracing
 
 Set:

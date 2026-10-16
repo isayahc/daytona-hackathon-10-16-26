@@ -1,0 +1,22 @@
+{
+  "organization": {
+    "id": "org-1",
+    "name": "Common Ground NYC",
+    "kind": "nonprofit",
+    "mission": "Help New Yorkers build practical skills and community-led projects.",
+    "is_mock": true
+  },
+  "event": {
+    "id": "e4",
+    "organization_id": "org-1",
+    "title": "Community Energy & Resilience Workshop",
+    "starts_at": "2026-11-14T13:00:00-05:00",
+    "summary": "Proposed workshop on community solar, energy costs, and resilience. Date and organizer are illustrative.",
+    "audience": "NYC residents, nonprofit operators, and community volunteers",
+    "source_urls": ["https://www.energy.gov/solar"],
+    "is_mock": true
+  },
+  "location": "New York City, prioritizing Brooklyn and Queens",
+  "objectives": "Develop a feasible nonprofit workshop proposition and identify public contacts, accessible venues, prospective sponsors, and catering options. Use the DOE source for background. Budget and participant count are not yet known; present options and identify what must be clarified.",
+  "max_candidates": 5
+}

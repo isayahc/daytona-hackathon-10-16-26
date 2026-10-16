@@ -27,6 +27,7 @@ class RuntimeConfig:
     snapshot: str | None = None
     document_category: str = ''
     retrieve_documents: bool = True
+    enable_websearch: bool = False
 
     def __post_init__(self) -> None:
         """Validate runtime inputs before any remote resource is created."""
@@ -53,6 +54,8 @@ class AgentResult:
     document_keys: tuple[str, ...] = ()
     document_storage: str = 'not_configured'
     retrieved_sources: tuple[dict[str, Any], ...] = ()
+    web_search_count: int = 0
+    fetched_urls: tuple[str, ...] = ()
 
 
 def tracing_settings(backend: str, env: Mapping[str, str]) -> dict[str, str]:
@@ -94,6 +97,31 @@ def parse_events(output: str) -> tuple[str, str, int]:
     return session_id, '\n'.join(text), count
 
 
+def web_activity(output: str) -> tuple[int, tuple[str, ...]]:
+    """Observe completed discovery/retrieval tools independently of model claims."""
+    searches = 0
+    urls = set()
+    for line in output.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict) or event.get('type') != 'tool_use':
+            continue
+        part = event.get('part')
+        if not isinstance(part, dict) or not isinstance(part.get('state'), dict):
+            continue
+        state = part['state']
+        if state.get('status') != 'completed':
+            continue
+        if part.get('tool') == 'websearch':
+            searches += 1
+        args = state.get('input')
+        if part.get('tool') == 'webfetch' and isinstance(args, dict) and isinstance(args.get('url'), str):
+            urls.add(args['url'])
+    return searches, tuple(sorted(urls))
+
+
 class DaytonaOpenCodeRuntime:
     """Own one sandbox and multiple OpenCode turns; always clean up on exit."""
 
@@ -109,6 +137,7 @@ class DaytonaOpenCodeRuntime:
             from document_store import DocumentStore
             self.document_store = DocumentStore(env=self.env)
         self.sandbox: Any = None
+        self.sandbox_id: str | None = None
         self.session_id: str | None = None
 
     def _exec(self, command: str, *, timeout: int = 240, env: dict[str, str] | None = None) -> str:
@@ -136,9 +165,12 @@ class DaytonaOpenCodeRuntime:
             'amazon-bedrock': tuple(key for key in MODEL_ENV_KEYS if key.startswith('AWS_')),
         }.get(provider, ())
         model_env = {key: self.env[key] for key in provider_keys if self.env.get(key)}
+        if self.config.enable_websearch:
+            model_env['OPENCODE_ENABLE_EXA'] = '1'
         self.sandbox = self.client.create(CreateSandboxFromSnapshotParams(
             language='typescript', snapshot=self.config.snapshot, public=False,
-            env_vars=model_env, auto_stop_interval=10, auto_delete_interval=0))
+             env_vars=model_env, auto_stop_interval=10, auto_delete_interval=0))
+        self.sandbox_id = self.sandbox.id
         print(f'Daytona sandbox: {self.sandbox.id}', file=sys.stderr, flush=True)
         try:
             self._exec('command -v npm && command -v python3 && command -v curl && command -v git')
@@ -153,7 +185,8 @@ class DaytonaOpenCodeRuntime:
                 'Cite sources and distinguish proposals, verified facts, and fictional fixtures. '
                 'Prepare editable plans and outreach drafts. Do not send messages, book venues, '
                 'submit applications, or make commitments; those require the separate operator-reviewed workflow. '
-                'Use webfetch to retrieve source documents so their content can be captured. '
+                'Use websearch for discovery when available, then webfetch to read source documents '
+                'so their content can be captured. '
                 'Never claim a link has been read unless its content was retrieved. '
                 'Never print environment variables or credentials.\n')
             self.sandbox.fs.upload_file(instructions.encode(), '/home/daytona/workspace/AGENTS.md')
@@ -218,10 +251,11 @@ class DaytonaOpenCodeRuntime:
                                f'exit code {response.exit_code}')
         session_id, text, count = parse_events(output)
         self.session_id = session_id
+        searches, fetched_urls = web_activity(output)
         return AgentResult(self.sandbox.id, session_id, text, count, self.config.tracing,
                             document_keys=document_keys,
                             document_storage='saved' if self.document_store else 'not_configured',
-                            retrieved_sources=sources)
+                            retrieved_sources=sources, web_search_count=searches, fetched_urls=fetched_urls)
 
     def close(self) -> None:
         """Delete the owned sandbox; retain its ID if deletion fails for recovery."""
