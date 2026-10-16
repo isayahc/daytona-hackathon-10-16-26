@@ -23,9 +23,13 @@ Open http://127.0.0.1:8080. See [setup and scope](SETUP.md#operator-workspace-ui
 
 ## Outreach prototype
 
-Use an authenticated **Anchor Browser** session to send a reviewed LinkedIn message or Gmail email, with drafts and delivery history stored in **SurrealDB**. Python standard library only.
+Use an authenticated **Anchor Browser** session to send a reviewed LinkedIn message or Gmail email, with drafts and delivery history stored in **SurrealDB**. Use a project-local virtual environment (see setup below); the CLI automatically loads your project `.env`.
 
 **[Setup and demo walkthrough → SETUP.md](SETUP.md)**
+
+## Research document ingestion
+
+Download weather, climate, defense, and energy documents into SurrealDB, retaining original files, extracted PDF/HTML/plain text, source metadata, and SHA-256 checksums. The CLI supports category filtering, text search, duplicate detection, and verified file/text export. Run `.venv/bin/python outreach.py documents --help`; see the [document ingestion walkthrough](SETUP.md#document-ingestion-originals-and-extracted-text).
 
 ## Event links
 

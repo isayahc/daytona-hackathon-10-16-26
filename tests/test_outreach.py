@@ -1,11 +1,41 @@
 """Offline contract checks for validation, delivery uncertainty, and send claims."""
 import unittest
+from io import BytesIO
+from urllib.error import HTTPError
 from unittest.mock import patch
 import outreach
 
 
 class OutreachTests(unittest.TestCase):
     """Test consequential workflow boundaries without sending real messages."""
+
+    @patch.dict('os.environ', {'ANCHOR_API_KEY': 'test'})
+    @patch('outreach.urlopen')
+    def test_session_request_matches_anchor_schema(self, urlopen: object) -> None:
+        """Headless configuration is an object, as required by POST /v1/sessions."""
+        import json
+        urlopen.return_value.__enter__.return_value.read.return_value = b'{"data": {"id": "session"}}'
+        self.assertEqual(outreach.Anchor().start(), {'id': 'session'})
+        req = urlopen.call_args.args[0]
+        self.assertEqual(req.full_url, 'https://api.anchorbrowser.io/v1/sessions')
+        payload = json.loads(req.data)
+        self.assertEqual(payload['browser']['headless'], {'active': False})
+        self.assertEqual(payload['session']['recording'], {'active': False})
+
+    def test_http_errors_are_actionable_without_leaking_secrets(self) -> None:
+        """Keep status and guidance while excluding private response bodies and URLs."""
+        for status, hint in [(400, 'schema'), (401, 'credentials'), (402, 'credits'),
+                             (403, 'permissions'), (429, 'limit'), (503, 'availability')]:
+            with self.subTest(status=status):
+                error = HTTPError('https://api.anchorbrowser.io/private-token', status,
+                                  'private-reason', {}, BytesIO(b'private-body'))
+                with patch('outreach.urlopen', side_effect=error):
+                    with self.assertRaises(outreach.ProviderHTTPError) as raised:
+                        outreach.request('https://api.anchorbrowser.io/v1/sessions', {}, {})
+                message = str(raised.exception)
+                self.assertIn(f'Anchor request failed (HTTP {status})', message)
+                self.assertIn(hint, message)
+                self.assertNotIn('private', message)
 
     def test_recipients(self) -> None:
         """Accept exact recipients and reject ambiguous or hostile addresses."""

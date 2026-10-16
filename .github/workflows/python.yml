@@ -8,5 +8,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m unittest discover -s tests -v
-      - run: python -m compileall -q outreach.py
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install -r requirements.txt
+      - name: Download disposable database test binary
+        run: |
+          curl --fail --location --output "$RUNNER_TEMP/surreal.tgz" https://github.com/surrealdb/surrealdb/releases/download/v2.3.10/surreal-v2.3.10.linux-amd64.tgz
+          tar -xzf "$RUNNER_TEMP/surreal.tgz" -C "$RUNNER_TEMP"
+      - run: .venv/bin/python -m unittest discover -s tests -v
+        env:
+          SURREAL_TEST_BINARY: ${{ runner.temp }}/surreal
+      - run: .venv/bin/python -m compileall -q outreach.py documents.py
