@@ -2,6 +2,16 @@
 
 Hackathon workspace for the **Daytona HackSprint with Arize AI** in New York City. This README is a quick reference for builders, organizers, and judges.
 
+## Operator workspace UI
+
+A responsive NYC map, event calendar, and activity stream with linked event selection and clearly labeled fictional data. Shared Python domain models live in `operator_app/models.py`.
+
+```bash
+python -m operator_app.server --port 8080
+```
+
+Open http://127.0.0.1:8080. See [setup and scope](SETUP.md#operator-workspace-ui-skeleton). Tracks [Epic #5](https://github.com/isayahc/daytona-hackathon-10-16-26/issues/5).
+
 ## Outreach prototype
 
 Use an authenticated **Anchor Browser** session to send a reviewed LinkedIn message or Gmail email, with drafts and delivery history stored in **SurrealDB**. Python standard library only.

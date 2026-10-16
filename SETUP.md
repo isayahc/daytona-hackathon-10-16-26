@@ -105,3 +105,20 @@ Offline tests exercise recipient validation, parameterized conditional delivery 
 - [Anchor profile persistence](https://docs.anchorbrowser.io/api-reference/profiles/create-profile)
 - [Anchor web task API](https://docs.anchorbrowser.io/api-reference/ai-tools/perform-web-task)
 - [SurrealDB HTTP/RPC](https://surrealdb.com/docs/reference/rest-api)
+
+## Operator workspace UI skeleton
+
+```bash
+python -m operator_app.server --port 8080
+```
+
+Open **http://127.0.0.1:8080** on the machine running the command. No Python dependencies are needed. The server binds only to loopback and serves static files from `operator_app/static`, not the repository or environment files.
+
+The NYC venue map, monthly calendar/agenda, event metrics, activity filters, and event detail panel share a selected event. Click a venue card or calendar event to change context. Use the arrows to browse months. Activity rows open read-only detail dialogs. All fixtures are fictional, labeled mock, and contain no connected account data. The plan-event button explains the next step rather than pretending to save a plan.
+
+- `operator_app/models.py`: reusable typed dataclasses and enums for organizations, locations, venues, events, activities, metrics, and the workspace envelope.
+- `operator_app/mock_data.py`: sole source of sample records and their relationships.
+- `GET /api/workspace`: serialized model data with explicit mock provenance, schema version, and Eastern-time timestamps.
+- `operator_app/static/`: responsive UI with keyboard-accessible controls and native dialogs.
+
+Leaflet and fonts load from public CDNs, and map tiles come from OpenStreetMap. If map assets cannot load, venue cards remain available. Leaflet attribution is retained. No social provider is connected by the UI, and its buttons do not execute the outreach CLI. This change is a UI skeleton, not a production hosted service.
