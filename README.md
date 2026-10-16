@@ -2,6 +2,12 @@
 
 Hackathon workspace for the **Daytona HackSprint with Arize AI** in New York City. This README is a quick reference for builders, organizers, and judges.
 
+## Outreach prototype
+
+Use an authenticated **Anchor Browser** session to send a reviewed LinkedIn message or Gmail email, with drafts and delivery history stored in **SurrealDB**. Python standard library only.
+
+**[Setup and demo walkthrough → SETUP.md](SETUP.md)**
+
 ## Event links
 
 - [Official event page and schedule](https://luma.com/hacksprint-nyc)
