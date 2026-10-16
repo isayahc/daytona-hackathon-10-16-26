@@ -2,6 +2,15 @@
 
 Hackathon workspace for the **Daytona HackSprint with Arize AI** in New York City. This README is a quick reference for builders, organizers, and judges.
 
+## Daytona agent runtime
+
+Run **OpenCode inside a private Daytona sandbox**, orchestrated from Python, with optional **Arize AX / Phoenix tracing**. Supports sequential turns and automatic sandbox cleanup. See [DAYTONA.md](DAYTONA.md) for provider credentials, setup, and verification limits.
+
+```bash
+pip install -r requirements-agent.txt
+python -m agent_runtime --prompt-file task.txt
+```
+
 ## Operator workspace UI
 
 A responsive NYC map, event calendar, and activity stream with linked event selection and clearly labeled fictional data. Shared Python domain models live in `operator_app/models.py`.

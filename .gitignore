@@ -5,3 +5,7 @@ __pycache__/
 .venv/
 *.pyc
 message*.txt
+
+task*.txt
+followup*.txt
+demo-context.json
