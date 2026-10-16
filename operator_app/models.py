@@ -40,8 +40,8 @@ class Organization:
     """Nonprofit, venue operator, institution, or prospective sponsor."""
     id: str
     name: str
-    kind: str
-    mission: str
+    kind: str = 'nonprofit'
+    mission: str = ''
     website: str | None = None
     location: Location | None = None
     source_url: str | None = None
@@ -53,41 +53,100 @@ class Venue:
     """A venue candidate; suitability and availability require verification."""
     id: str
     name: str
-    location: Location
-    capacity: int
-    hourly_cost_usd: float | None
-    accessibility_notes: str
+    location: Location | None = None
+    capacity: int | None = None
+    hourly_cost_usd: float | None = None
+    accessibility_notes: str = ''
     availability: str = 'unverified'
     source_url: str | None = None
     is_mock: bool = True
 
 
 @dataclass(frozen=True)
-class Event:
-    """A program event and the measurable goals that guide its operation."""
+class Person:
+    """An attendee, organizer, volunteer, or partner contact; contact data is optional."""
     id: str
-    organization_id: str
-    title: str
-    summary: str
-    starts_at: datetime
-    ends_at: datetime
-    status: EventStatus
-    venue_id: str | None
-    audience: str
-    budget_usd: float
-    funding_secured_usd: float
-    registration_count: int
-    registration_target: int
-    intended_outcomes: tuple[str, ...] = ()
+    name: str
+    organization_id: str | None = None
+    email: str | None = None
+    role: str | None = None
+    is_mock: bool = True
+
+
+@dataclass(frozen=True)
+class Sponsor:
+    """A prospective or confirmed sponsor, distinct from a funding commitment."""
+    id: str
+    name: str
+    organization_id: str | None = None
+    contact_person_id: str | None = None
+    contribution_usd: float | None = None
+    contribution_notes: str | None = None
+    status: str = 'prospective'
     is_mock: bool = True
 
     def __post_init__(self) -> None:
+        if self.contribution_usd is not None and self.contribution_usd < 0:
+            raise ValueError('Sponsor contribution cannot be negative')
+
+
+@dataclass(frozen=True)
+class Catering:
+    """An optional food-service plan; naming a provider does not imply a booking."""
+    id: str
+    provider_name: str
+    organization_id: str | None = None
+    contact_person_id: str | None = None
+    headcount: int | None = None
+    cost_usd: float | None = None
+    dietary_notes: str | None = None
+    status: str = 'proposed'
+    is_mock: bool = True
+
+    def __post_init__(self) -> None:
+        if any(value is not None and value < 0 for value in (self.headcount, self.cost_usd)):
+            raise ValueError('Catering headcount and cost cannot be negative')
+
+
+@dataclass(frozen=True)
+class Event:
+    """Core identity, organizer and time, with optional planning relationships.
+
+    Attendee IDs represent recorded attendance, not registrations or invitations.
+    Empty relationships mean none have been recorded, not a confirmed absence.
+    """
+    id: str
+    organization_id: str
+    title: str
+    starts_at: datetime
+    summary: str = ''
+    ends_at: datetime | None = None
+    status: EventStatus = EventStatus.PLANNING
+    venue_id: str | None = None
+    audience: str = ''
+    budget_usd: float | None = None
+    funding_secured_usd: float | None = None
+    registration_count: int | None = None
+    registration_target: int | None = None
+    intended_outcomes: tuple[str, ...] = ()
+    is_mock: bool = True
+    attendee_ids: tuple[str, ...] = ()
+    organizer_person_ids: tuple[str, ...] = ()
+    sponsor_ids: tuple[str, ...] = ()
+    catering_id: str | None = None
+    source_document_keys: tuple[str, ...] = ()
+    source_urls: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
         """Require aware timestamps and a positive event duration."""
-        if self.starts_at.tzinfo is None or self.ends_at.tzinfo is None:
+        if not all(value.strip() for value in (self.id, self.organization_id, self.title)):
+            raise ValueError('Event ID, organizer ID and title are required')
+        if self.starts_at.utcoffset() is None or (self.ends_at is not None and self.ends_at.utcoffset() is None):
             raise ValueError('Event timestamps must include a timezone')
-        if self.ends_at <= self.starts_at:
+        if self.ends_at is not None and self.ends_at <= self.starts_at:
             raise ValueError('Event end must follow its start')
-        if min(self.budget_usd, self.funding_secured_usd, self.registration_count, self.registration_target) < 0:
+        if any(value is not None and value < 0 for value in
+               (self.budget_usd, self.funding_secured_usd, self.registration_count, self.registration_target)):
             raise ValueError('Event metrics cannot be negative')
 
 
@@ -129,6 +188,9 @@ class Workspace:
     events: tuple[Event, ...]
     activities: tuple[Activity, ...]
     metrics: tuple[Metric, ...]
+    people: tuple[Person, ...] = ()
+    sponsors: tuple[Sponsor, ...] = ()
+    catering: tuple[Catering, ...] = ()
     timezone: str = 'America/New_York'
     demo_date: str = '2026-10-16'
     is_mock: bool = True
@@ -151,3 +213,4 @@ class Document:
     is_truncated: bool = False
     capture_method: str = 'manual'
     is_mock: bool = False
+    category: str = ''

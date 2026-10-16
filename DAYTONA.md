@@ -106,7 +106,7 @@ def plan_event(model: str) -> str:
 
 ## Automatically save discovered documents to SurrealDB
 
-With `SURREAL_URL` and the existing SurrealDB credentials configured, the runtime automatically ingests **completed OpenCode `webfetch` results at the end of each turn**. No separate ingestion switch is required. It captures the retrieved text/Markdown/HTML representation, rather than claiming to store original binary files.
+With `SPECTRON_URL`, `SPECTRON_CONTEXT_ID`, and `SPECTRON_API_KEY` configured, the runtime automatically saves **completed OpenCode `webfetch` results at the end of each turn** to Spectron (SurrealDB Agent Memory). Alternatively, configure `SURREAL_URL` and the existing direct SurrealDB credentials. Spectron takes precedence when configured. No separate ingestion switch is required. It captures the retrieved text/Markdown/HTML representation, rather than claiming to store original binary files. See [Spectron setup and smoke test](SETUP.md#spectron--surrealdb-agent-memory).
 
 Each `document` record contains:
 
@@ -117,7 +117,7 @@ Each `document` record contains:
 
 The reusable `Document` dataclass lives in `operator_app/models.py`. Repeated source/content pairs are upserted to the same record; changed content creates a different version. Upsert updates the latest retrieval metadata for that version; this is not a full history of every fetch occurrence. Different sources retain distinct records even if their text matches.
 
-The host Python process writes to SurrealDB. Database credentials remain outside the Daytona sandbox. Agent results include `document_keys` and a `document_storage` status; without `SURREAL_URL`, the status is explicitly `not_configured`.
+The host Python process writes to the selected storage backend. Database and Spectron credentials remain outside the Daytona sandbox. Agent results include `document_keys` and a `document_storage` status; without either backend configured, the status is explicitly `not_configured`.
 
 Only actual completed `webfetch` outputs are captured. Links merely mentioned in a response, search snippets, subagent-internal fetches not emitted by the parent CLI, browser pages from Anchor, and binary PDF attachments are not automatically ingested by this adapter. For PDFs, ingest extracted text using the manual command below. Documents over 2 MiB must be explicitly split rather than silently truncated. A truncated tool output is labeled when the tool supplies that metadata.
 
@@ -132,4 +132,4 @@ python -m document_store list
 python -m document_store show DOCUMENT_KEY
 ```
 
-Use your actual HTTP(S) SurrealDB instance origin in `SURREAL_URL`; `https://surrealdb` is not assumed to be your database endpoint. The existing local demo or your Surreal Cloud instance works with the same adapter. No live database write was performed during development; provide the instance credentials to verify the full workflow.
+For the direct database backend, use your actual HTTP(S) SurrealDB instance origin in `SURREAL_URL`; `https://surrealdb` is not assumed to be your database endpoint. For Spectron, use the context endpoint and `SPECTRON_*` settings above. Run `.venv/bin/python smoke_surrealdb.py` to verify the selected backend. The Spectron path has been verified with a live webfetch-event ingestion, exact raw retrieval, checksum, listing, duplicate detection, and cleanup.

@@ -2,7 +2,11 @@
 from __future__ import annotations
 import hashlib
 import json
-from dataclasses import asdict
+import os
+import re
+import math
+from collections import Counter
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from typing import Any, Mapping
 from urllib.parse import urlsplit, urlunsplit
@@ -69,20 +73,29 @@ class DocumentStore:
 
     def __init__(self, env: Mapping[str, str] | None = None, *, memory: Any = None) -> None:
         """Reuse the database adapter without forwarding credentials to the agent."""
-        self.memory = memory if memory is not None else Memory(env=env)
+        env = os.environ if env is None else env
+        self.spectron = None
+        if memory is None and any(env.get(key) for key in ('SPECTRON_URL', 'SPECTRON_CONTEXT_ID', 'SPECTRON_API_KEY')):
+            from .spectron import SpectronDocuments
+            self.spectron = SpectronDocuments(env)
+        self.memory = memory if memory is not None else None if self.spectron else Memory(env=env)
 
     def save(self, document: Document) -> str:
         """Idempotently store one version and return its reusable document key."""
         payload = asdict(document)
         payload['retrieved_at'] = document.retrieved_at.isoformat()
+        if self.spectron:
+            return self.spectron.save(payload)
         self.memory.query("UPSERT type::record('document:' + $id) CONTENT $document;",
                           {'id': document.key, 'document': payload})
         return document.key
 
-    def ingest_events(self, output: str) -> tuple[str, ...]:
+    def ingest_events(self, output: str, *, category: str = '') -> tuple[str, ...]:
         """Persist fetched documents, surfacing backend failures with the exact version ID."""
         keys = []
         for document in documents_from_events(output):
+            if category:
+                document = replace(document, category=category)
             try:
                 keys.append(self.save(document))
             except Exception as error:
@@ -92,10 +105,55 @@ class DocumentStore:
 
     def list(self) -> list[Any]:
         """Return source metadata without loading all stored content."""
-        return self.memory.query('SELECT key, source_url, title, content_sha256, retrieved_at, '
+        if self.spectron:
+            return self.spectron.list()
+        return self.memory.query('SELECT key, source_url, title, category, content_sha256, retrieved_at, '
                                  'source_session_id, is_truncated FROM document WHERE content != NONE;')[0]
 
     def get(self, key: str) -> list[Any]:
         """Retrieve a specific source/content version for reuse or citation."""
+        if self.spectron:
+            return self.spectron.get(key)
         return self.memory.query("SELECT * FROM type::record('document:' + $id) WHERE content != NONE;",
                                  {'id': key})[0]
+
+    def search(self, query: str, *, category: str = '', limit: int = 5) -> list[dict[str, Any]]:
+        """Rank exact stored passages lexically; works before async indexing completes.
+
+        This bounded-context prototype scans the corpus, rather than relying on an
+        asynchronously indexed or potentially stale remote passage representation.
+        """
+        if not 1 <= limit <= 20:
+            raise ValueError('Search limit must be between 1 and 20')
+        from documents import CATEGORIES
+        if category and category not in CATEGORIES:
+            raise ValueError('Choose weather, climate, defense, or energy')
+        stopwords = {'the', 'and', 'for', 'with', 'that', 'this', 'from', 'what', 'how',
+                     'are', 'can', 'our', 'into', 'about', 'would', 'could', 'should', 'does'}
+        tokens = lambda text: [word for word in re.findall(r'\w+', text.lower())
+                               if len(word) > 2 and word not in stopwords]
+        terms = set(tokens(query))
+        if not terms:
+            return []
+        if self.spectron:
+            documents = [self.spectron.read(row) for row in self.spectron.records()]
+        else:
+            documents = [document for row in self.list() for document in self.get(row['key'])]
+        passages = []
+        for document in documents:
+            if category and document.get('category', '') != category:
+                continue
+            text = document['content']
+            for offset in range(0, len(text), 1200):
+                passage = text[offset:offset + 1600]
+                counts = Counter(tokens(passage))
+                matched = terms & counts.keys()
+                if not matched:
+                    continue
+                score = sum(1 + math.log(counts[term]) for term in matched) / math.sqrt(max(len(counts), 1))
+                passages.append({'document_key': document['key'], 'title': document['title'],
+                                 'source_url': document['source_url'], 'category': document.get('category', ''),
+                                 'content_sha256': document['content_sha256'], 'passage': passage,
+                                 'offset': offset, 'score': score})
+        passages.sort(key=lambda row: (-row['score'], row['document_key'], row['offset']))
+        return passages[:limit]

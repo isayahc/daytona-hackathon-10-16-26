@@ -15,6 +15,20 @@ python -m agent_runtime --prompt-file task.txt
 
 Completed OpenCode web fetches automatically save their retrieved text and provenance to SurrealDB when database settings are configured. Documents have reusable typed models, stable version IDs, checksums, and source URLs. See [automatic document ingestion](DAYTONA.md#automatically-save-discovered-documents-to-surrealdb).
 
+With Spectron configured, ingest local PDF/DOCX/HTML/text files or public document
+URLs, then search saved passages or let the agent retrieve them before each turn.
+Topics: weather, climate, defense, and energy.
+
+```bash
+.venv/bin/python -m document_store ingest --url https://www.energy.gov/solar --category energy --title "DOE Solar Energy"
+.venv/bin/python -m document_store search "community solar resilience" --category energy
+.venv/bin/python -m agent_runtime --prompt-file examples/energy-research.txt --category energy
+```
+
+The agent command also requires Daytona and model-provider credentials. See
+[document-grounded research](SETUP.md#document-grounded-research) for file uploads,
+citation behavior, and retrieval limits.
+
 ## Operator workspace UI
 
 A responsive NYC map, event calendar, and activity stream with linked event selection and clearly labeled fictional data. Shared Python domain models live in `operator_app/models.py`.
