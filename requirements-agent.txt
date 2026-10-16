@@ -1,0 +1,2 @@
+# Optional runtime dependency; the UI and outreach CLI remain standard-library only.
+daytona==0.224.1
