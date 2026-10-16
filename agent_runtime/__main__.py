@@ -35,8 +35,8 @@ def main() -> None:
 if __name__ == '__main__':
     try:
         main()
-    except Exception as error:
-        print(str(error) if isinstance(error, ValueError) else
-              f'Agent runtime failed ({type(error).__name__}); check private Daytona logs and sandbox cleanup.',
-              file=sys.stderr)
+    except Exception:
+        # Keep the traceback and chained ingestion/provider failures actionable.
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
