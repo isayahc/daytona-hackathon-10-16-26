@@ -28,6 +28,146 @@ docker run --rm --name outreach-db -p 127.0.0.1:8000:8000 \
 
 Set `SURREAL_URL=http://127.0.0.1:8000`, `SURREAL_USER=root`, `SURREAL_PASS=demo-only`, namespace/database `outreach`. Memory mode is disposable; use Cloud or a persistent database for retained history.
 
+### SurrealDB smoke test
+
+Verify the database configured in `.env` (existing environment variables take precedence):
+
+```bash
+.venv/bin/python smoke_surrealdb.py
+```
+
+This live test checks an authenticated query and a create/read/update/delete round trip
+in the configured namespace and database. It uses a unique record in the `smoke_test`
+table and deletes that record in cleanup, including when a check fails. The table may
+remain empty afterward. Credentials need read/write/delete access to that table.
+The command prints PASS/FAIL and exits with status 0 on success or 1 on failure.
+
+### Spectron / SurrealDB Agent Memory
+
+For agent-fetched documents and `python -m document_store`, configure the context
+credentials from SurrealDB Studio:
+
+```dotenv
+SPECTRON_URL=https://<your-context-host>
+SPECTRON_CONTEXT_ID=<your-context-id>
+SPECTRON_API_KEY=<your-context-api-key>
+```
+
+These document workflows prefer Spectron when any `SPECTRON_*` setting is supplied;
+all three are required. Credentials stay in the host process. The document CLI loads
+the project `.env` automatically, with existing environment variables taking precedence.
+
+Run `.venv/bin/python smoke_surrealdb.py` to verify a live Spectron upload, exact text
+retrieval, checksum, listing, deduplication, and deletion. It removes its unique test
+document in cleanup. The key needs document read/write/delete permissions.
+
+Documents are uploaded through Spectron's multipart document API as UTF-8 JSON
+envelopes in text files. This preserves the complete original text, title, source URL,
+timestamps, and checksum for exact retrieval. Studio titles have a
+`daytona-document:<key>` prefix to support stable-key discovery; the original title is
+preserved inside the file. Search indexing runs asynchronously after upload; a successful
+round trip verifies raw storage, not completion of indexing. Listing downloads each
+managed document envelope to reconstruct source metadata. Duplicate source/text versions
+reuse an existing document; concurrent writes also use Spectron's 24-hour idempotency key.
+
+The outreach draft/delivery CLI and binary download/export commands still use the
+direct `SURREAL_*` database settings. Spectron's memory API does not provide the
+conditional SurrealQL updates used to claim a delivery attempt.
+
+### Document-grounded research
+
+The document pipeline supports the existing **weather, climate, defense, and energy**
+topics. Ingest a public source URL, or extract a local PDF, DOCX, HTML, Markdown or
+plain-text file. Local files require a public source/citation URL as provenance:
+
+```bash
+# Download, extract, and save a public source.
+.venv/bin/python -m document_store ingest \
+  --url https://www.energy.gov/solar --title "DOE Solar Energy" --category energy
+
+# Extract a local file and save its text to Spectron.
+.venv/bin/python -m document_store ingest \
+  --file ./report.pdf --url https://example.org/report.pdf \
+  --title "Energy resilience report" --category energy
+
+# Inspect the passages available to the agent.
+.venv/bin/python -m document_store search "community solar resilience" --category energy
+
+# Run an agent turn grounded in stored research (requires Daytona/model credentials).
+.venv/bin/python -m agent_runtime --prompt-file examples/energy-research.txt --category energy
+```
+
+Files/downloads are limited to 50 MiB, and extracted text to 2 MiB per document.
+This pipeline stores the extracted text and provenance; original PDF/DOCX binaries
+are not uploaded by this command. Scanned PDFs need OCR before ingestion; encrypted,
+empty, and unsupported documents fail explicitly. The legacy `--text-file` input
+also remains available.
+
+Before each agent turn, the host retrieves up to five matching passages (at most
+1,600 characters each) from saved documents. The agent receives the passages as
+source data with `[D1]`, `[D2]`, etc. and instructions to cite supporting evidence
+and source URLs. Results include a `retrieved_sources` citation map; citations are
+instructions to the model, not a guarantee that every generated claim is supported.
+Use `--category` to limit the corpus, or omit it to search all saved topics.
+New webfetch documents inherit the selected category. `--no-document-memory`
+skips retrieval for that run while allowing completed webfetches to be saved.
+
+Retrieval currently uses deterministic lexical passage ranking over the exact
+stored text. It downloads/scans the managed corpus on each turn; it is intended
+for a small research collection, does not require Spectron's async index to be
+ready, and does not perform semantic/vector search. No matches means the agent
+gets no stored evidence; it can still research using its normal tools. Backend
+failures stop the turn rather than silently pretending retrieval worked.
+
+Verified live sources include NOAA's `https://www.weather.gov/safety/heat`, NASA's
+`https://science.nasa.gov/climate-change/what-is-climate-change/`, and DOE's
+`https://www.energy.gov/solar`. Defense source downloads tried during verification
+returned HTTP 403; download an authorized local copy and ingest with `--file` when
+the source site blocks automated requests. Verify report dates before treating
+historical material as current guidance.
+
+### Nonprofit event ecosystem objects
+
+Reusable dataclasses in `operator_app/models.py` represent the planning ecosystem:
+
+| Object | Required fields | Optional details |
+| --- | --- | --- |
+| `Organization` | `id`, `name` | Kind (defaults to `nonprofit`), mission, website, location |
+| `Event` | `id`, `organization_id`, `title`, timezone-aware `starts_at` | End time, venue, sponsors, catering, people, budget, registrations, outcomes, document references |
+| `Person` | `id`, `name` | Organization, role, email |
+| `Venue` | `id`, `name` | Location, capacity, cost, accessibility, availability |
+| `Sponsor` | `id`, `name` | Organization/contact, contribution, notes, status (defaults to `prospective`) |
+| `Catering` | `id`, `provider_name` | Organization/contact, headcount, cost, dietary notes, status (defaults to `proposed`) |
+
+An event links reusable objects through `venue_id`, `sponsor_ids`, `catering_id`,
+`organizer_person_ids`, and `attendee_ids`. `attendee_ids` contains people whose
+attendance was recorded, separately from `registration_count`; its default empty
+collection means no attendance records have been added. Optional amounts/counts
+default to `None` (unknown), rather than an invented zero. Lists default to empty
+tuples in Python and serialize as JSON arrays.
+
+```python
+from datetime import datetime
+from operator_app.models import Event, Organization
+
+nonprofit = Organization(id='org-1', name='Community nonprofit')
+event = Event(
+    id='event-1', organization_id=nonprofit.id,
+    title='Community Energy & Resilience Workshop',
+    starts_at=datetime.fromisoformat('2026-11-14T13:00:00-05:00'),
+)
+```
+
+The read-only workspace includes a proposed **Community Energy & Resilience
+Workshop** on November 14 with a fictional nonprofit organizer, candidate sponsor,
+and proposed catering provider. It links the ingested DOE Solar Energy document
+through `source_document_keys` and `source_urls`. Date and partners are illustrative;
+attendance, budget, end time, and venue are unrecorded. The API includes `people`,
+`sponsors`, and `catering` collections, and the event detail view displays these
+relationships. Run `.venv/bin/python -m operator_app.server --port 8080` and select
+the November 14 event to explore it. These are domain objects and sample API data;
+event creation/editing and live event persistence are not connected yet.
+
 ## 2. Start a browser and sign in
 
 ```bash
