@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Common Ground · NYC operator workspace</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<aside class="rail"><a class="brand" href="#" aria-label="Common Ground home">cg<span>Common<br>Ground</span></a><span class="rail-label">YOUR WORKSPACE</span><a class="nav active" href="#workspace">◈ <span>Overview</span></a><a class="nav" href="#map-panel">◎ <span>Ecosystem</span></a><a class="nav" href="#calendar-panel">▦ <span>Calendar</span></a><a class="nav" href="#activity-panel">↗ <span>Activity</span></a><div class="rail-bottom"><span class="avatar">CG</span><span>Common Ground NYC<small>Nonprofit workspace</small></span></div></aside>
+<main id="workspace">
+<header><div class="breadcrumb">Workspace <span>/</span> Overview</div><span class="location">● New York City</span><span class="avatar user">OP</span></header>
+<section class="intro"><div><div class="eyebrow">BUILD SOMETHING THAT LASTS</div><h1>Your community, in motion.</h1><p>A clearer view of your events, relationships, and what comes next.</p></div><button id="plan-button" class="primary">＋ Plan an event</button></section>
+<div class="demo-notice"><span class="demo-pill">DEMO WORKSPACE</span> Fictional events, partners, messages, and metrics. No accounts connected and no messages will be sent.</div>
+<div id="load-error" role="alert" hidden></div>
+<section class="kpis" id="kpis" aria-label="Selected event metrics"></section>
+<div class="workspace-grid">
+<section class="panel map-panel" id="map-panel"><div class="panel-heading"><div><span class="eyebrow">YOUR LOCAL ECOSYSTEM</span><h2>Opportunity is around you.</h2></div><span class="tag">NYC</span></div><div class="map-toolbar"><span class="dot"></span> Illustrative venue locations <span class="muted">· select a pin</span></div><div id="map" aria-label="Map of illustrative NYC venues"></div><div id="map-fallback" hidden><p>Map unavailable. Explore the same venues below.</p></div><div id="venue-list" class="venue-list"></div><div class="map-footer">Map tiles © OpenStreetMap contributors <span>Venue details are unverified samples</span></div></section>
+<section class="panel calendar-panel" id="calendar-panel"><div class="panel-heading"><div><span class="eyebrow">MAKE ROOM FOR WHAT MATTERS</span><h2>Your calendar</h2></div><span class="tag">ET</span></div><div class="month-nav"><button id="prev-month" aria-label="Previous month">‹</button><strong id="month-label"></strong><button id="next-month" aria-label="Next month">›</button></div><div class="weekday-row" aria-hidden="true"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div><div id="calendar" class="calendar-grid" aria-label="Event calendar"></div><div class="agenda-heading">ON THE HORIZON <button id="all-events">All events</button></div><div id="agenda"></div></section>
+</div>
+<div class="lower-grid"><section class="panel" id="activity-panel"><div class="panel-heading"><div><span class="eyebrow">STAY IN THE LOOP</span><h2>Signals & conversations</h2></div><span class="tag">Sample activity</span></div><div id="filters" class="filters" role="group" aria-label="Filter activity"></div><div id="activity" aria-live="polite"></div></section><section class="panel detail-panel"><div class="panel-heading"><div><span class="eyebrow">THE NEXT CHAPTER</span><h2>Event workspace</h2></div><span class="tag">Sample</span></div><div id="event-detail" aria-live="polite"></div></section></div>
+<footer class="page-footer">Small gatherings. Lasting possibilities. <span>Common Ground · NYC operator prototype</span></footer>
+</main>
+<dialog id="detail-dialog"><button class="close-dialog" aria-label="Close dialog">×</button><div id="dialog-content"></div><button class="primary close-dialog">Back to workspace</button></dialog>
+</body></html>
