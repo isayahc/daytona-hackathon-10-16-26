@@ -13,6 +13,24 @@ python -m agent_runtime --prompt-file task.txt
 
 ## Research document memory
 
+### Five-worker event research
+
+Run **five independent Daytona sandboxes in parallel** for public contacts,
+venues, prospective sponsors, catering, and event propositions. Each uses OpenCode
+web search and source-page retrieval, shares host-side document memory, and returns
+structured candidates in one event-linked report.
+
+```bash
+.venv/bin/python -m pip install -r requirements.txt -r requirements-agent.txt
+.venv/bin/python -m agent_runtime.research \
+  --brief examples/event-research.json --category energy \
+  --output event-research-report.json
+```
+
+Configure `DAYTONA_API_KEY`, `OPENCODE_MODEL`, and provider credentials in `.env`.
+Use `--dry-run` to inspect the five research prompts without creating sandboxes.
+See [parallel research setup, reports, and lifecycle](DAYTONA.md#five-parallel-event-researchers).
+
 Completed OpenCode web fetches automatically save their retrieved text and provenance to SurrealDB when database settings are configured. Documents have reusable typed models, stable version IDs, checksums, and source URLs. See [automatic document ingestion](DAYTONA.md#automatically-save-discovered-documents-to-surrealdb).
 
 With Spectron configured, ingest local PDF/DOCX/HTML/text files or public document
