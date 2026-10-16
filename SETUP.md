@@ -136,6 +136,8 @@ Export verifies the full original/text SHA-256 before writing and refuses to ove
 - `document_blob`: ordered 256 KiB chunks stored as native SurrealDB `bytes`. JSON transport uses unpadded base64 and `encoding::base64::decode()`; export uses `encoding::base64::encode()`.
 - `document_text`: ordered 16,000-character extracted-text chunks for retrieval and simple case-insensitive substring search. Search returns at most 20 matching chunks from published documents, optionally filtered by category; phrases spanning chunk boundaries are not matched.
 
+The `document` table also holds the agent runtime's retrieved-text records. Each CLI lists its own representation: `outreach.py documents` handles downloaded-file manifests, while `python -m document_store` handles captured text. Both workflows can use the same namespace/database.
+
 Each chunk is sent in its own request, below the default 4 MiB HTTP RPC request ceiling. The manifest is written only after all chunk writes succeed. An interrupted upload does not appear in document listings/search; retrying the same ingest overwrites its deterministic chunk IDs and completes it. Abandoned partial uploads can leave unpublished chunks. This workflow uses SurrealDB 2.3+ record/bytes APIs, without requiring experimental file buckets or external object storage. It requires permission to read/write these three tables (which are auto-created as schemaless tables in an unrestricted demo database).
 
 Text extraction supports digitally generated PDFs (`pypdf`), static HTML, and plain-text formats including TXT, Markdown, CSV, JSON, and XML. Extraction status is `extracted`, `no_text`, `encrypted`, `unsupported`, or `failed`; failures include an exception type. Original files are retained even when extraction is unavailable. Scanned/image-only PDFs need a later OCR step. HTML extraction reads the downloaded response, without running JavaScript or distinguishing a site's login/error page from ordinary HTML. Unsupported formats such as DOCX/ZIP are retained as originals with no extracted text.
@@ -161,7 +163,7 @@ If you have a local SurrealDB binary, enable those integration tests with:
 SURREAL_TEST_BINARY=/path/to/surreal .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Without that setting, the two real-database tests are skipped. Uploads to your own instance still require the database connection settings described above.
+Without that setting, the three real-database tests are skipped. These checks also verify that runtime text capture and downloaded-file storage coexist in the same database. Uploads to your own instance still require the database connection settings described above.
 
 ## API references
 

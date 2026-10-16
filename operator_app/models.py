@@ -134,3 +134,20 @@ class Workspace:
     is_mock: bool = True
     schema_version: str = '1.0'
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Document:
+    """Retrieved source text with versioned provenance for research and citations."""
+    key: str
+    source_url: str
+    title: str
+    content: str
+    content_format: str
+    content_sha256: str
+    retrieved_at: datetime
+    source_session_id: str | None = None
+    source_tool_call_id: str | None = None
+    is_truncated: bool = False
+    capture_method: str = 'manual'
+    is_mock: bool = False

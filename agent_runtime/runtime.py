@@ -46,6 +46,8 @@ class AgentResult:
     tracing_backend: str
     # Configured does not imply a trace has been received by the backend.
     trace_delivery_verified: bool = False
+    document_keys: tuple[str, ...] = ()
+    document_storage: str = 'not_configured'
 
 
 def tracing_settings(backend: str, env: Mapping[str, str]) -> dict[str, str]:
@@ -97,6 +99,10 @@ class DaytonaOpenCodeRuntime:
         self.env = dict(os.environ if env is None else env)
         self.trace = tracing_settings(config.tracing, self.env)
         self.client = client
+        self.document_store: Any = None
+        if self.env.get('SURREAL_URL'):
+            from document_store import DocumentStore
+            self.document_store = DocumentStore(env=self.env)
         self.sandbox: Any = None
         self.session_id: str | None = None
 
@@ -142,6 +148,8 @@ class DaytonaOpenCodeRuntime:
                 'Cite sources and distinguish proposals, verified facts, and fictional fixtures. '
                 'Prepare editable plans and outreach drafts. Do not send messages, book venues, '
                 'submit applications, or make commitments; those require the separate operator-reviewed workflow. '
+                'Use webfetch to retrieve source documents so their content can be captured. '
+                'Never claim a link has been read unless its content was retrieved. '
                 'Never print environment variables or credentials.\n')
             self.sandbox.fs.upload_file(instructions.encode(), '/home/daytona/workspace/AGENTS.md')
             if self.trace:
@@ -179,11 +187,20 @@ class DaytonaOpenCodeRuntime:
                    'session_id': self.session_id, 'timeout': self.config.turn_timeout}
         self.sandbox.fs.upload_file(json.dumps(payload).encode(), '/home/daytona/runtime/request.json')
         self._exec('chmod 600 /home/daytona/runtime/request.json')
-        output = self._exec('python3 /home/daytona/runtime/runner.py /home/daytona/runtime/request.json',
-                            timeout=self.config.turn_timeout + 30)
+        response = self.sandbox.process.exec(
+            'python3 /home/daytona/runtime/runner.py /home/daytona/runtime/request.json',
+            timeout=self.config.turn_timeout + 30)
+        output = response.result or ''
+        # Save completed retrievals even if the agent later emits an error.
+        document_keys = self.document_store.ingest_events(output) if self.document_store else ()
+        if response.exit_code != 0:
+            raise RuntimeError('OpenCode turn failed after completed document retrievals were processed; '
+                               f'exit code {response.exit_code}')
         session_id, text, count = parse_events(output)
         self.session_id = session_id
-        return AgentResult(self.sandbox.id, session_id, text, count, self.config.tracing)
+        return AgentResult(self.sandbox.id, session_id, text, count, self.config.tracing,
+                           document_keys=document_keys,
+                           document_storage='saved' if self.document_store else 'not_configured')
 
     def close(self) -> None:
         """Delete the owned sandbox; retain its ID if deletion fails for recovery."""

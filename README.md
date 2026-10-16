@@ -11,6 +11,10 @@ pip install -r requirements-agent.txt
 python -m agent_runtime --prompt-file task.txt
 ```
 
+## Research document memory
+
+Completed OpenCode web fetches automatically save their retrieved text and provenance to SurrealDB when database settings are configured. Documents have reusable typed models, stable version IDs, checksums, and source URLs. See [automatic document ingestion](DAYTONA.md#automatically-save-discovered-documents-to-surrealdb).
+
 ## Operator workspace UI
 
 A responsive NYC map, event calendar, and activity stream with linked event selection and clearly labeled fictional data. Shared Python domain models live in `operator_app/models.py`.

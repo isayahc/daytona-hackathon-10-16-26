@@ -149,6 +149,8 @@ class Documents:
         rows = self.db.query("SELECT * FROM type::record('document:' + $key);", {"key": key})[0]
         if not rows:
             raise ValueError("Document not found")
+        if "blob_chunks" not in rows[0]:
+            raise ValueError("This is a retrieved-text record; use python -m document_store show KEY")
         return rows[0]
 
     def ingest(self, url: str, category: str, title: str | None = None) -> dict[str, Any]:
@@ -191,7 +193,8 @@ class Documents:
 
     def list(self, category: str | None = None) -> list[Any]:
         return self.db.query(
-            "SELECT * FROM document WHERE $category = NULL OR category = $category "
+            "SELECT * FROM document WHERE blob_chunks != NONE "
+            "AND ($category = NULL OR category = $category) "
             "ORDER BY downloaded_at DESC LIMIT 100;", {"category": category})[0]
 
     def search(self, term: str, category: str | None = None) -> list[Any]:
@@ -199,7 +202,7 @@ class Documents:
             raise ValueError("Search term cannot be empty")
         return self.db.query(
             "SELECT document_key, position, text FROM document_text WHERE "
-            "document_key IN (SELECT VALUE key FROM document) "
+            "document_key IN (SELECT VALUE key FROM document WHERE blob_chunks != NONE) "
             "AND ($category = NULL OR category = $category) "
             "AND string::contains(string::lowercase(text), string::lowercase($term)) LIMIT 20;",
             {"term": term, "category": category})[0]

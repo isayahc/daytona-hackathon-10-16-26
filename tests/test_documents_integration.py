@@ -16,6 +16,7 @@ from urllib.request import urlopen
 from unittest.mock import patch
 
 from documents import Documents
+from document_store import DocumentStore, capture_document
 from outreach import Memory
 
 
@@ -113,3 +114,19 @@ class DocumentIntegrationTests(unittest.TestCase):
             original = Path(tmp) / 'original.bin'
             self.store.export(record['key'], original)
             self.assertEqual(original.read_bytes(), BINARY)
+
+    def test_downloads_and_runtime_text_coexist_in_the_same_database(self):
+        text_store = DocumentStore(memory=self.db)
+        captured = capture_document('https://example.org/coexist', 'Agent retrieved climate research')
+        text_store.save(captured)
+        downloaded = self.store.ingest(self.source_url + '/coexist.txt', 'weather')
+        download_keys = [row['key'] for row in self.store.list()]
+        capture_keys = [row['key'] for row in text_store.list()]
+        self.assertIn(downloaded['key'], download_keys)
+        self.assertNotIn(captured.key, download_keys)
+        self.assertIn(captured.key, capture_keys)
+        self.assertNotIn(downloaded['key'], capture_keys)
+        self.assertEqual(text_store.get(captured.key)[0]['content'], captured.content)
+        self.assertFalse(text_store.get(downloaded['key']))
+        with self.assertRaisesRegex(ValueError, 'retrieved-text record'):
+            self.store.get(captured.key)
