@@ -10,9 +10,10 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 from .mock_data import demo_workspace
 from .drafts import list_drafts, save_draft
+from .chat import ChatService, ChatUnavailable, ChatBusy, targets_for
 
 
 def encode(value: Any) -> Any:
@@ -33,6 +34,12 @@ class Handler(SimpleHTTPRequestHandler):
     """Expose static UI assets, sample data, and local event creation."""
 
     database = Path('.operator/workspace.sqlite3')
+    chat: ChatService | None = None
+
+    def workspace(self) -> dict[str, Any]:
+        value = json.loads(workspace_json())
+        value['events'].extend(list_drafts(self.database))
+        return value
 
     def respond(self, status: int, value: Any) -> None:
         """Send a noncacheable JSON response."""
@@ -46,7 +53,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Create a local draft; reject cross-origin and oversized requests."""
-        if urlsplit(self.path).path != '/api/events':
+        path = urlsplit(self.path).path
+        if path not in {'/api/events', '/api/chat', '/api/message-drafts'}:
             self.respond(404, {'error': 'Unknown endpoint.'})
             return
         origin = self.headers.get('Origin')
@@ -63,7 +71,25 @@ class Handler(SimpleHTTPRequestHandler):
             value = json.loads(self.rfile.read(length))
             if not isinstance(value, dict):
                 raise ValueError('Expected an event object.')
-            self.respond(201, save_draft(self.database, value))
+            if path == '/api/events':
+                self.respond(201, save_draft(self.database, value))
+            elif self.chat is None:
+                self.respond(503, {'error': 'Chat is unavailable. Restart the server.'})
+            elif path == '/api/message-drafts':
+                if not all(isinstance(value.get(key), str) for key in ('run_id', 'draft_id')):
+                    raise ValueError('Provide a run and draft ID.')
+                self.respond(200, self.chat.edit(value['run_id'], value['draft_id'], value))
+            else:
+                workspace = self.workspace()
+                event = next((e for e in workspace['events'] if e['id'] == value.get('event_id')), None)
+                if event is None:
+                    raise ValueError('Select an event before asking the agent to draft messages.')
+                targets = targets_for(event, workspace, value.get('candidates'))
+                self.respond(202, self.chat.start(event, value.get('prompt'), targets))
+        except ChatUnavailable as error:
+            self.respond(503, {'error': str(error)})
+        except ChatBusy as error:
+            self.respond(409, {'error': str(error)})
         except (ValueError, UnicodeDecodeError) as error:
             self.respond(400, {'error': str(error)})
         except (OSError, sqlite3.Error):
@@ -71,9 +97,14 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Combine saved drafts with fixtures and serve the static application."""
-        if urlsplit(self.path).path == '/api/workspace':
-            value = json.loads(workspace_json())
-            value['events'].extend(list_drafts(self.database))
+        if urlsplit(self.path).path == '/api/chat':
+            event_id = parse_qs(urlsplit(self.path).query).get('event_id', [''])[0]
+            if self.chat is None:
+                self.respond(503, {'error': 'Chat is unavailable. Restart the server.'})
+            else:
+                self.respond(200, {'runs': self.chat.history(event_id)})
+        elif urlsplit(self.path).path == '/api/workspace':
+            value = self.workspace()
             payload = json.dumps(value).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -92,10 +123,11 @@ def main() -> None:
     parser.add_argument('--database', type=Path, default=Handler.database, help='Local SQLite draft store')
     args = parser.parse_args()
     Handler.database = args.database
+    Handler.chat = ChatService(args.database)
     static = Path(__file__).parent / 'static'
     handler = partial(Handler, directory=str(static))
     with ThreadingHTTPServer(('127.0.0.1', args.port), handler) as server:
-        print(f'Operator workspace: http://127.0.0.1:{args.port}', flush=True)
+        print(f'Operator workspace: http://127.0.0.1:{server.server_port}', flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
@@ -104,4 +136,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-

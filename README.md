@@ -2,6 +2,24 @@
 
 Hackathon workspace for the **Daytona HackSprint with Arize AI** in New York City. This README is a quick reference for builders, organizers, and judges.
 
+## Start here: launch the UI
+
+With **Python 3.11+**, run this from the repository root:
+
+```bash
+./run.sh
+```
+
+Open **http://127.0.0.1:8080** to explore the workspace and choose **Plan an event**.
+This starts both the frontend and backend. Stop with **Ctrl+C**; use
+`./run.sh --port 8081` to choose another port.
+No dependencies or API keys are required for the local UI. The built-in
+**Getting started** guide walks through creating a draft, exporting a brief, and
+reviewing research results.
+
+**[Full getting-started guide → GETTING_STARTED.md](GETTING_STARTED.md)** — setup,
+research configuration, report import, and troubleshooting.
+
 ## Daytona agent runtime
 
 Run **OpenCode inside a private Daytona sandbox**, orchestrated from Python, with optional **Arize AX / Phoenix tracing**. Supports sequential turns and automatic sandbox cleanup. See [DAYTONA.md](DAYTONA.md) for provider credentials, setup, and verification limits.
@@ -77,7 +95,18 @@ The server binds to loopback for local use; it is not an authenticated public se
    Partial/failed runs remain visible. Imports remain in the current browser tab;
    retain the report file to reopen it later. Credential setup remains in [DAYTONA.md](DAYTONA.md).
 
-The UI does not launch paid sandboxes, send outreach, book venues, or execute payments.
+### Event planning chat
+
+Open **Event chat** in the bottom-right corner, describe your plan for the selected
+event, and choose **Draft messages**. The planning agent produces messages grouped
+by **venues, sponsors, catering, and contacts** in **Party message drafts**.
+Edit and save each message or copy it for use elsewhere. Conversations and drafts
+persist locally across reloads. Follow-up prompts can revise the previous drafts.
+
+Chat requires the agent dependencies and Daytona/model credentials described in
+[GETTING_STARTED.md](GETTING_STARTED.md#event-chat-and-party-message-drafts).
+Each submission launches a paid agent sandbox. The UI does not send outreach,
+book venues, or execute payments.
 XRP is explicitly shown as not connected until that integration is available.
 The map uses external Leaflet/OpenStreetMap assets and falls back to the venue list
 when unavailable. Draft creation and research review work without the map.
@@ -136,4 +165,3 @@ The published judging criteria give equal weight to **impact potential**, **tech
 ---
 
 Event information is sourced from the [official Luma listing](https://luma.com/hacksprint-nyc) and [Devpost](https://daytona-hacksprint-nyc.devpost.com/). Sponsor names and logos belong to their respective owners.
-
