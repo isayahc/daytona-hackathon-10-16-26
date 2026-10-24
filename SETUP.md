@@ -1,5 +1,9 @@
 # LinkedIn and Gmail outreach
 
+Looking for the event-planning UI? Start with the
+[Common Ground getting-started guide](GETTING_STARTED.md) to launch the workspace
+without API keys and create your first event.
+
 Python 3.11+; use a project-local virtual environment as shown below. This is a single-user CLI, not a hosted multi-user login service. Anchor runs the browser agent; SurrealDB stores drafts and delivery state. LinkedIn and Gmail are accessed through their websites in your manually authenticated browser. No LinkedIn messaging API or Gmail OAuth client is required for this browser workflow.
 
 ## 1. Configure

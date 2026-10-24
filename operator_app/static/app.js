@@ -72,7 +72,8 @@ function render(){
  renderMetrics();renderCalendar();renderActivity();renderDetail();renderResearch();
  $('event-select').innerHTML=data.events.map(e=>`<option value="${esc(e.id)}">${esc(e.title)}</option>`).join('');
  $('event-select').value=selectedId;
- $('event-provenance').textContent=data.events.find(e=>e.id===selectedId).is_mock ? 'Fictional sample' : 'Saved locally · draft';
+  $('event-provenance').textContent=data.events.find(e=>e.id===selectedId).is_mock ? 'Fictional sample' : 'Saved locally · draft';
+  document.dispatchEvent(new CustomEvent('workspace-event', {detail: selectedId}));
 }
 function setupMap(){
  if(!window.L){$('map').hidden=true;$('map-fallback').hidden=false;return;}
@@ -144,4 +145,3 @@ $('report-file').onchange=async event=>{
 };
 document.querySelectorAll('.nav').forEach(link=>link.onclick=()=>{document.querySelectorAll('.nav').forEach(item=>item.classList.toggle('active',item===link));});
 fetch('/api/workspace').then(r=>{if(!r.ok)throw new Error('Workspace unavailable');return r.json();}).then(result=>{data=result;selectedId=data.events[0].id;render();setupMap();$('plan-button').disabled=false;$('event-select').disabled=false;$('export-brief').disabled=false;}).catch(()=>{$('load-error').hidden=false;$('load-error').textContent='Could not load the sample workspace. Start the Python app and reload this page.';});
-
