@@ -49,13 +49,41 @@ citation behavior, and retrieval limits.
 
 ## Operator workspace UI
 
-A responsive NYC map, event calendar, and activity stream with linked event selection and clearly labeled fictional data. Shared Python domain models live in `operator_app/models.py`.
+A responsive event workspace with a NYC map, linked calendar, activity feed,
+local event authoring, and research evidence review. No frontend build step needed.
+Shared Python domain models live in `operator_app/models.py`.
 
 ```bash
 python -m operator_app.server --port 8080
 ```
 
-Open http://127.0.0.1:8080. See [setup and scope](SETUP.md#operator-workspace-ui-skeleton). Tracks [Epic #5](https://github.com/isayahc/daytona-hackathon-10-16-26/issues/5).
+Open http://127.0.0.1:8080 and choose **Plan an event**. Drafts persist in
+`.operator/workspace.sqlite3` (gitignored); use `--database /path/to/workspace.sqlite3`
+to select another store. Sample events remain explicitly labeled fictional.
+Unknown funding and attendance stay unknown rather than becoming invented numbers.
+The server binds to loopback for local use; it is not an authenticated public service.
+
+### Research from the UI
+
+1. Select an event and choose **Export research brief**.
+2. Use the downloaded JSON with the existing research runner:
+
+   ```bash
+   python -m agent_runtime.research --brief ~/Downloads/event-brief.json --category energy --output event-research-report.json
+   ```
+
+3. Choose **Import report** and select the resulting JSON. The UI matches its event
+   ID, shows each worker's status, candidate details, source links, and open questions.
+   Partial/failed runs remain visible. Imports remain in the current browser tab;
+   retain the report file to reopen it later. Credential setup remains in [DAYTONA.md](DAYTONA.md).
+
+The UI does not launch paid sandboxes, send outreach, book venues, or execute payments.
+XRP is explicitly shown as not connected until that integration is available.
+The map uses external Leaflet/OpenStreetMap assets and falls back to the venue list
+when unavailable. Draft creation and research review work without the map.
+
+Validation: `python -m unittest discover -s tests -v`; optional browser smoke test:
+`node tests/ui_smoke.cjs` with Playwright installed and the local server running.
 
 ## Outreach prototype
 
@@ -108,3 +136,4 @@ The published judging criteria give equal weight to **impact potential**, **tech
 ---
 
 Event information is sourced from the [official Luma listing](https://luma.com/hacksprint-nyc) and [Devpost](https://daytona-hacksprint-nyc.devpost.com/). Sponsor names and logos belong to their respective owners.
+
