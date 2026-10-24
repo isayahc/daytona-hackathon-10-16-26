@@ -68,6 +68,9 @@ orders that already have a pending or confirmed payment.
 
 ## Attendee flow
 
+For **Connect Xaman** and automatic payment verification, follow [XAMAN.md](XAMAN.md).
+The steps below describe the manual fallback when Xaman is not configured.
+
 1. Select an event, enter the attendee's classic Testnet wallet address, and
    reserve a ticket. Checkout reads the latest validated ledger before it
    creates the order, so this step needs network access.
@@ -76,7 +79,7 @@ orders that already have a pending or confirmed payment.
 3. In a wallet/tool that supports Testnet, send the displayed XRP amount to the
    organizer **with the displayed destination tag**, from the specified attendee
    account. The request JSON can be copied for use with the XRPL SDK. There is
-   no embedded wallet connection or automatic signing in this version.
+   no automatic signing in the manual flow; Xaman approval is available separately.
 4. Paste the transaction hash and select **Verify payment & get ticket**.
    If the ledger has not validated it yet, retry verification without paying again.
 5. Save the admission code and present it at the event.
@@ -130,7 +133,8 @@ requires small JSON bodies for writes.
 - Use one persistent database for each receiving account and do not share the
   account's tag allocation with another ticketing system. The database enforces
   uniqueness within this application, not across independent deployments.
-- Verification is initiated by the attendee; no background ledger watcher runs.
+- Manual verification is initiated by the attendee. The Xaman flow initiates it
+  automatically after wallet approval; no background ledger watcher runs.
   A successful network payment by itself does not update the local order until
   verification is requested.
 - Wrong tags, unexpected amounts, and unsupported payment types require organizer

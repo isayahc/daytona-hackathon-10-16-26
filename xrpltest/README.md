@@ -25,13 +25,16 @@ python3 -m venv .venv
 Open **http://127.0.0.1:8081/tickets**. The main application can continue using
 port 8080. Starting with no configured events shows an empty checkout page.
 
-Attendees reserve a seat, pay from their own Testnet wallet, and submit the
-transaction hash. The server verifies payment before issuing an admission code.
+Attendees can **connect Xaman**, reserve a seat, and approve payment in their
+wallet; the server verifies payment before issuing an admission code. Follow
+[the Xaman setup guide](XAMAN.md) to add your developer app credentials. Manual
+wallet-address entry and transaction-hash verification remain available.
 The checkout never asks for wallet secrets. Read [the ticket guide](TICKETS.md)
 for account setup, payment verification, admission, and the prototype's limits.
 
 The earlier vendor payment CLI is also preserved here; see [the vendor guide](XRPL.md).
-Only that optional CLI uses `xrpltest/.env` with `XRPL_TESTNET_SEED`.
+That optional CLI uses `XRPL_TESTNET_SEED`. The Xaman integration uses
+`XAMAN_API_KEY` and `XAMAN_API_SECRET`; all may be configured in `xrpltest/.env`.
 
 ## Files
 
@@ -39,18 +42,20 @@ Only that optional CLI uses `xrpltest/.env` with `XRPL_TESTNET_SEED`.
 | --- | --- |
 | `event_tickets.py` | Ticket events, reservations, payment verification, check-in CLI |
 | `server.py` | Standalone loopback HTTP server and checkout API |
+| `xaman.py` | Server-side Xaman sign-in, payment requests, and status verification |
 | `static/` | Attendee checkout HTML, CSS, and JavaScript |
 | `event_finance.py` | Optional vendor payment CLI and shared amount/address validation |
 | `tests/` | Offline finance and ticket verification tests |
 | `requirements.txt` | XRPL-specific dependencies |
-| `.env.example` | Optional vendor signer configuration template |
+| `.env.example` | Xaman developer credentials and optional vendor signer template |
 
 ## Data and existing orders
 
 Defaults are `xrpltest/event-tickets.sqlite3` and
 `xrpltest/event-finance.sqlite3`, regardless of the working directory. These
-databases, local vendor files, and `.env` are ignored by Git. Database schemas
-are unchanged from the previous root-level implementation.
+databases, local vendor files, and `.env` are ignored by Git. Existing event,
+order, and payment tables remain compatible with the previous implementation;
+Xaman adds its request-tracking table on first use.
 
 If you already have a database outside this folder, explicitly point both the
 CLI and server at it rather than creating replacement orders:

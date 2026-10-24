@@ -12,6 +12,18 @@
 <div class="intro"><p class="eyebrow">CULTURE. CONNECTION. A SEAT FOR YOU.</p><h1>Your next experience<br>starts here.</h1><p>Choose an event and pay for your ticket with XRP on Testnet.</p></div>
 <p class="notice">Demo checkout · Testnet XRP has no monetary value. Use a dedicated Testnet wallet.</p>
 <div id="message" role="status" aria-live="polite"></div>
+<section class="card" id="wallet-panel">
+<div class="step">YOUR WALLET</div><h2>Connect with Xaman</h2>
+<p id="wallet-status" aria-live="polite">Checking wallet connection…</p>
+<button type="button" id="connect-xaman" disabled>Connect Xaman</button>
+<div id="xaman-request" hidden>
+<p id="xaman-status" role="status" aria-live="polite"></p>
+<img id="xaman-qr" width="240" height="240" alt="Scan this signing request with the Xaman app" referrerpolicy="no-referrer" hidden>
+<a id="xaman-open" class="wallet-link" target="_blank" rel="noopener noreferrer" hidden>Open in Xaman ↗</a>
+<button type="button" id="xaman-check">Check wallet response</button>
+<p class="hint">On desktop, scan the QR code using Xaman on your phone. Approve only the Testnet request you expect. Keep this browser tab open.</p>
+</div>
+</section>
 <section class="card" id="choose-panel">
 <div class="step">01 · CHOOSE YOUR EVENT</div><h2>Reserve your ticket</h2>
 <form id="checkout-form">
@@ -26,6 +38,8 @@
 <div class="step">02 · PAY WITH YOUR WALLET</div><h2 id="order-title"></h2>
 <dl><dt>Ticket price</dt><dd id="price"></dd><dt>Send to</dt><dd id="receiver" class="mono"></dd><dt>Destination tag</dt><dd id="tag" class="mono"></dd><dt>Pay from</dt><dd id="payer" class="mono"></dd></dl>
 <p>Send the exact amount with the destination tag using your Testnet wallet. The network fee is paid separately by your wallet.</p>
+<button type="button" id="pay-xaman" disabled>Pay with Xaman · Testnet</button>
+<p id="xaman-pay-hint" class="hint">Connect Xaman above to approve this payment in your app. The ticket appears after ledger verification.</p>
 <details><summary>Payment request for your wallet</summary><pre id="payment-json"></pre><button type="button" id="copy">Copy payment request</button></details>
 <p class="hint">Save this page’s URL to return to your order. Each order reserves one seat.</p>
 <form id="verify-form"><label for="tx-hash">Transaction hash</label><input id="tx-hash" required pattern="[a-fA-F0-9]{64}" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Paste the hash after paying"><button id="verify">Verify payment & get ticket</button></form>

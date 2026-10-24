@@ -57,17 +57,36 @@ class Handler(SimpleHTTPRequestHandler):
                 if not isinstance(body, dict) or not all(isinstance(v, str) for v in body.values()):
                     raise TicketError('Provide text values for the checkout fields.')
             store = TicketStore(self.tickets_db)
-            if method == 'GET' and path == '/api/tickets/events':
+            if path.startswith('/api/tickets/xaman/'):
+                from .xaman import XamanClient, XamanFlow, credentials
+                if method == 'GET' and path == '/api/tickets/xaman/config':
+                    result = {'enabled': all(credentials()), 'network': 'testnet'}
+                else:
+                    flow = XamanFlow(store, XamanClient())
+                    if method == 'POST' and path == '/api/tickets/xaman/connect':
+                        result = flow.create('connect')
+                    elif method == 'POST' and path == '/api/tickets/xaman/pay':
+                        result = flow.create('payment', connection_id=body['connection_id'], order_id=body['order_id'])
+                    elif method == 'POST' and path == '/api/tickets/xaman/status':
+                        result = flow.status(body['request_id'], TicketLedger())
+                    else:
+                        self.json_response(404, {'error': 'Wallet route not found.'})
+                        return
+            elif method == 'GET' and path == '/api/tickets/events':
                 result = {'events': store.events(), 'network': 'testnet'}
             elif method == 'GET' and path.startswith('/api/tickets/orders/'):
                 result = store.order(path.removeprefix('/api/tickets/orders/'))
             elif method == 'POST' and path == '/api/tickets/orders':
                 from .event_finance import address
-                address(body['buyer'])
+                buyer = body.get('buyer', '')
+                if body.get('connection_id'):
+                    from .xaman import XamanClient, XamanFlow
+                    buyer = XamanFlow(store, XamanClient()).account(body['connection_id'])
+                address(buyer)
                 event = store.event(body['event_id'])
                 if event['available'] <= 0:
                     raise TicketError('All tickets are sold or reserved.')
-                result = store.checkout(body['event_id'], body['buyer'], TicketLedger().validated_index())
+                result = store.checkout(body['event_id'], buyer, TicketLedger().validated_index())
             elif method == 'POST' and path == '/api/tickets/verify':
                 result = store.verify(TicketLedger(), body['order_id'], body['tx_hash'])
             else:
