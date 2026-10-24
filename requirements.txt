@@ -1,2 +1,4 @@
 python-dotenv>=1.0,<2
 pypdf>=6,<7
+
+xrpl-py==4.5.0

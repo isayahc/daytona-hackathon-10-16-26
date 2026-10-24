@@ -12,3 +12,6 @@ demo-context.json
 
 guide*.txt
 event-research-report.json
+
+.xrpl-wallets*.json
+.xrpl-payments*.sqlite3*

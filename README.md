@@ -2,6 +2,21 @@
 
 Hackathon workspace for the **Daytona HackSprint with Arize AI** in New York City. This README is a quick reference for builders, organizers, and judges.
 
+## XRPL event payments
+
+The operator dashboard now supports **XRPL Testnet ticket invoices and approved
+vendor payments**, with revenue thresholds, per-event spending caps, persistent
+receipts and explorer links. Test XRP is free and has no monetary value.
+
+```bash
+pip install -r requirements.txt
+python -m operator_app.payments --setup
+# Set XRPL_ENABLED=true in .env
+python -m operator_app.server --port 8080
+```
+
+See [XRPL setup, three-minute demo, API and limitations](XRPL.md).
+
 ## Daytona agent runtime
 
 Run **OpenCode inside a private Daytona sandbox**, orchestrated from Python, with optional **Arize AX / Phoenix tracing**. Supports sequential turns and automatic sandbox cleanup. See [DAYTONA.md](DAYTONA.md) for provider credentials, setup, and verification limits.
