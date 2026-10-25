@@ -20,6 +20,21 @@ reviewing research results.
 **[Full getting-started guide → GETTING_STARTED.md](GETTING_STARTED.md)** — setup,
 research configuration, report import, and troubleshooting.
 
+## XRPL event payments
+
+The operator dashboard now supports **XRPL Testnet ticket invoices and approved
+vendor payments**, with revenue thresholds, per-event spending caps, persistent
+receipts and explorer links. Test XRP is free and has no monetary value.
+
+```bash
+pip install -r requirements.txt
+python -m operator_app.payments --setup
+# Set XRPL_ENABLED=true in .env
+python -m operator_app.server --port 8080
+```
+
+See [XRPL setup, three-minute demo, API and limitations](XRPL.md).
+
 ## Daytona agent runtime
 
 Run **OpenCode inside a private Daytona sandbox**, orchestrated from Python, with optional **Arize AX / Phoenix tracing**. Supports sequential turns and automatic sandbox cleanup. See [DAYTONA.md](DAYTONA.md) for provider credentials, setup, and verification limits.
@@ -105,9 +120,10 @@ persist locally across reloads. Follow-up prompts can revise the previous drafts
 
 Chat requires the agent dependencies and Daytona/model credentials described in
 [GETTING_STARTED.md](GETTING_STARTED.md#event-chat-and-party-message-drafts).
-Each submission launches a paid agent sandbox. The UI does not send outreach,
-book venues, or execute payments.
-XRP is explicitly shown as not connected until that integration is available.
+Each submission launches a paid agent sandbox. The chat does not send outreach, book venues, or execute payments.
+The separate Event payments panel supports optional Testnet invoice operations.
+The standalone [Xaman ticket checkout](xrpltest/README.md) runs on port 8081;
+its ticket records are not synchronized with dashboard invoices or registrations.
 The map uses external Leaflet/OpenStreetMap assets and falls back to the venue list
 when unavailable. Draft creation and research review work without the map.
 

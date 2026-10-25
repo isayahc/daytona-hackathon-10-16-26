@@ -15,3 +15,6 @@ event-research-report.json
 
 
 .operator/
+
+.xrpl-wallets*.json
+.xrpl-payments*.sqlite3*

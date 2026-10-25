@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 from .mock_data import demo_workspace
+from .payments import Payments, configured_payments
 from .drafts import list_drafts, save_draft
 from .chat import ChatService, ChatUnavailable, ChatBusy, targets_for
 
@@ -32,6 +33,8 @@ def workspace_json() -> bytes:
 
 class Handler(SimpleHTTPRequestHandler):
     """Expose static UI assets, sample data, and local event creation."""
+
+    payments: Payments | None = None
 
     database = Path('.operator/workspace.sqlite3')
     chat: ChatService | None = None
@@ -54,6 +57,9 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         """Create a local draft; reject cross-origin and oversized requests."""
         path = urlsplit(self.path).path
+        if path.startswith('/api/xrpl/'):
+            self.payment_post()
+            return
         if path not in {'/api/events', '/api/chat', '/api/message-drafts'}:
             self.respond(404, {'error': 'Unknown endpoint.'})
             return
@@ -95,9 +101,66 @@ class Handler(SimpleHTTPRequestHandler):
         except (OSError, sqlite3.Error):
             self.respond(500, {'error': 'Could not save the draft. Check database permissions.'})
 
+    def _json(self, value: Any, status: int = 200) -> None:
+        """Return uncached JSON without disclosing configuration or wallet secrets."""
+        payload = json.dumps(value, default=encode).encode('utf-8')
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(payload)))
+        self.send_header('Cache-Control', 'no-store')
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def payment_post(self) -> None:
+        """Accept same-origin local Testnet operations with bounded JSON bodies."""
+        path = urlsplit(self.path).path
+        if path not in ('/api/xrpl/invoices', '/api/xrpl/pay', '/api/xrpl/reconcile'):
+            self._json({'error': 'Unknown endpoint.'}, 404)
+            return
+        # JSON + custom header prevents cross-origin HTML forms from spending.
+        # Validate Host too, to reject DNS rebinding against the local server.
+        host = self.headers.get('Host', '')
+        allowed = {f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}'}
+        origin = self.headers.get('Origin')
+        if (host not in allowed or (origin and origin != f'http://{host}')
+                or self.headers.get('X-Operator-Request') != '1'
+                or self.headers.get_content_type() != 'application/json'):
+            self._json({'error': 'Use the local workspace or same-origin JSON API.'}, 403)
+            return
+        if self.payments is None:
+            self._json({'error': 'Payment service unavailable.'}, 503)
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 8192:
+                raise ValueError('JSON request must be 1–8192 bytes.')
+            payload = json.loads(self.rfile.read(length))
+            if not isinstance(payload, dict):
+                raise ValueError('JSON body must be an object.')
+            self.payments.event_ids = {event['id'] for event in self.workspace()['events']}
+            if path == '/api/xrpl/invoices':
+                result = self.payments.create(payload)
+            else:
+                invoice_id = payload.get('invoice_id')
+                if not isinstance(invoice_id, str):
+                    raise ValueError('Provide an invoice_id.')
+                if path == '/api/xrpl/pay':
+                    result = self.payments.pay(invoice_id)
+                else:
+                    result = self.payments.reconcile(invoice_id, payload.get('tx_hash'))
+            self._json(result)
+        except (ValueError, UnicodeError) as exc:
+            self._json({'error': str(exc)}, 400)
+        except Exception:
+            self._json({'error': 'Testnet unavailable. Refresh invoices and reconcile any pending transaction; do not create a replacement payment.'}, 502)
+
     def do_GET(self) -> None:
         """Combine saved drafts with fixtures and serve the static application."""
-        if urlsplit(self.path).path == '/api/chat':
+        if urlsplit(self.path).path == '/api/xrpl':
+            if self.payments is not None:
+                self.payments.event_ids = {event['id'] for event in self.workspace()['events']}
+            self._json(self.payments.snapshot() if self.payments else {'enabled': False, 'network': 'testnet'})
+        elif urlsplit(self.path).path == '/api/chat':
             event_id = parse_qs(urlsplit(self.path).query).get('event_id', [''])[0]
             if self.chat is None:
                 self.respond(503, {'error': 'Chat is unavailable. Restart the server.'})
@@ -122,6 +185,16 @@ def main() -> None:
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--database', type=Path, default=Handler.database, help='Local SQLite draft store')
     args = parser.parse_args()
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        pass  # The local workspace remains usable without optional dependencies.
+    else:
+        load_dotenv(Path(__file__).resolve().parents[1] / '.env')
+    Handler.payments = configured_payments(
+        {event.id for event in demo_workspace().events}
+        | {event['id'] for event in list_drafts(args.database)}
+    )
     Handler.database = args.database
     Handler.chat = ChatService(args.database)
     static = Path(__file__).parent / 'static'
