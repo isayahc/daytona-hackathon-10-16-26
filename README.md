@@ -2,6 +2,24 @@
 
 Hackathon workspace for the **Daytona HackSprint with Arize AI** in New York City. This README is a quick reference for builders, organizers, and judges.
 
+## Start here: launch the UI
+
+With **Python 3.11+**, run this from the repository root:
+
+```bash
+./run.sh
+```
+
+Open **http://127.0.0.1:8080** to explore the workspace and choose **Plan an event**.
+This starts both the frontend and backend. Stop with **Ctrl+C**; use
+`./run.sh --port 8081` to choose another port.
+No dependencies or API keys are required for the local UI. The built-in
+**Getting started** guide walks through creating a draft, exporting a brief, and
+reviewing research results.
+
+**[Full getting-started guide → GETTING_STARTED.md](GETTING_STARTED.md)** — setup,
+research configuration, report import, and troubleshooting.
+
 ## XRPL event payments
 
 The operator dashboard now supports **XRPL Testnet ticket invoices and approved
@@ -64,13 +82,53 @@ citation behavior, and retrieval limits.
 
 ## Operator workspace UI
 
-A responsive NYC map, event calendar, and activity stream with linked event selection and clearly labeled fictional data. Shared Python domain models live in `operator_app/models.py`.
+A responsive event workspace with a NYC map, linked calendar, activity feed,
+local event authoring, and research evidence review. No frontend build step needed.
+Shared Python domain models live in `operator_app/models.py`.
 
 ```bash
 python -m operator_app.server --port 8080
 ```
 
-Open http://127.0.0.1:8080. See [setup and scope](SETUP.md#operator-workspace-ui-skeleton). Tracks [Epic #5](https://github.com/isayahc/daytona-hackathon-10-16-26/issues/5).
+Open http://127.0.0.1:8080 and choose **Plan an event**. Drafts persist in
+`.operator/workspace.sqlite3` (gitignored); use `--database /path/to/workspace.sqlite3`
+to select another store. Sample events remain explicitly labeled fictional.
+Unknown funding and attendance stay unknown rather than becoming invented numbers.
+The server binds to loopback for local use; it is not an authenticated public service.
+
+### Research from the UI
+
+1. Select an event and choose **Export research brief**.
+2. Use the downloaded JSON with the existing research runner:
+
+   ```bash
+   python -m agent_runtime.research --brief ~/Downloads/event-brief.json --category energy --output event-research-report.json
+   ```
+
+3. Choose **Import report** and select the resulting JSON. The UI matches its event
+   ID, shows each worker's status, candidate details, source links, and open questions.
+   Partial/failed runs remain visible. Imports remain in the current browser tab;
+   retain the report file to reopen it later. Credential setup remains in [DAYTONA.md](DAYTONA.md).
+
+### Event planning chat
+
+Open **Event chat** in the bottom-right corner, describe your plan for the selected
+event, and choose **Draft messages**. The planning agent produces messages grouped
+by **venues, sponsors, catering, and contacts** in **Party message drafts**.
+Edit and save each message or copy it for use elsewhere. Conversations and drafts
+persist locally across reloads. Follow-up prompts can revise the previous drafts.
+
+Chat requires the agent dependencies and Daytona/model credentials described in
+[GETTING_STARTED.md](GETTING_STARTED.md#event-chat-and-party-message-drafts).
+Each submission launches a paid agent sandbox. The chat does not send outreach, book venues, or execute payments.
+The separate Event payments panel supports optional Testnet invoice operations.
+The standalone [Xaman ticket checkout](xrpltest/README.md) runs on port 8081;
+its ticket records are not synchronized with dashboard invoices or registrations.
+The map uses external Leaflet/OpenStreetMap assets and falls back to the venue list
+when unavailable. Draft creation and research review work without the map.
+
+Validation: `python -m unittest discover -s tests -v`; optional browser smoke test:
+`node tests/ui_smoke.cjs` with Playwright installed and the local server running.
 
 ## Outreach prototype
 

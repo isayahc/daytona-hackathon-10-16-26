@@ -36,9 +36,12 @@
       el('payments-status').textContent = 'Payments disabled. Run python -m operator_app.payments --setup, set XRPL_ENABLED=true in .env, and restart the server.';
       return;
     }
-    if (!el('payment-event').options.length) {
+    {
+      const previous = el('payment-event').value;
+      el('payment-event').replaceChildren();
       const workspace = await request('/api/workspace');
-      workspace.events.forEach(event => el('payment-event').add(new Option(event.title, event.id)));
+      workspace.events.filter(event => state.totals[event.id]).forEach(event => el('payment-event').add(new Option(event.title, event.id)));
+      if (state.totals[previous]) el('payment-event').value = previous;
     }
     render();
   }

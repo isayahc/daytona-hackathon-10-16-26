@@ -200,6 +200,7 @@ class PaymentTests(unittest.TestCase):
         class TestHandler(Handler):
             """Bind a local fake service without changing the production handler."""
             payments = self.service
+            database = Path(self.temp.name) / "workspace.sqlite3"
 
             def log_message(self, format: str, *args: Any) -> None:
                 """Keep HTTP test logs quiet."""
@@ -209,7 +210,24 @@ class PaymentTests(unittest.TestCase):
         try:
             connection = HTTPConnection('127.0.0.1', server.server_port)
             headers = {'Content-Type':'application/json', 'X-Operator-Request':'1'}
-            payload = dict(event_id='e1', kind='ticket', label='Ticket', amount_xrp='20')
+            connection.request('POST', '/api/events', json.dumps({
+                'title': 'Payment regression event', 'starts_at': '2026-11-14T13:00:00-05:00'
+            }), {'Content-Type': 'application/json'})
+            response = connection.getresponse()
+            self.assertEqual(response.status, 201)
+            event = json.loads(response.read())
+            connection.request('GET', '/api/workspace')
+            response = connection.getresponse()
+            self.assertIn(event, json.loads(response.read())['events'])
+            connection.request('GET', '/api/xrpl')
+            response = connection.getresponse()
+            self.assertIn(event['id'], json.loads(response.read())['totals'])
+            connection.request('POST', '/api/chat', json.dumps({'event_id': event['id']}),
+                               {'Content-Type': 'application/json'})
+            response = connection.getresponse()
+            self.assertEqual(response.status, 503)  # Routed to chat, which is unconfigured.
+            response.read()
+            payload = dict(event_id=event['id'], kind='ticket', label='Ticket', amount_xrp='20')
             connection.request('POST', '/api/xrpl/invoices', json.dumps(payload), headers)
             response = connection.getresponse()
             self.assertEqual(response.status, 200)

@@ -1,0 +1,4 @@
+# Standalone ticket checkout and optional vendor payments; native XRP on Testnet only.
+xrpl-py==4.5.0
+python-dotenv>=1.0,<2
+certifi>=2024.8.30
